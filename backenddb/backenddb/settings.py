@@ -78,7 +78,7 @@ WSGI_APPLICATION = 'backenddb.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': '/solar/db.sqlite3',
+        'NAME': '/root/db.sqlite3',
     }
 }
 
@@ -119,7 +119,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
-STATIC_URL = '/solar/static/'
+
+STATIC_URL = '/static/'
+STATIC_ROOT = '/static/'
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,

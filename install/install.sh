@@ -18,9 +18,9 @@ then
   set -o allexport; source .env; set +o allexport
 fi
 mkdir -p $ROOT_DIR
-mkdir -p /nginx/conf
-cp nginx/app_nginx.conf /nginx/conf/app_nginx.conf
-cp nginx/uwsgi_params /nginx/uwsgi_params
+mkdir -p /nginx2/conf
+cp nginx/app_nginx.conf /nginx2/conf/app_nginx.conf
+cp nginx/uwsgi_params /nginx2/uwsgi_params
 timedatectl set-timezone ${TIMEZONE}
 echo "Package installation finished"
 

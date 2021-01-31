@@ -1,6 +1,9 @@
 import time
+from datetime import date
+from datetime import datetime
 from base import InvertorBase
 import requests
+
 
 class SunnyBoyInverter(InvertorBase):
     def logout(self):
@@ -36,8 +39,11 @@ class SunnyBoyInverter(InvertorBase):
         params = {}
         params["destDev"] = []
         params["key"] = 28672
-        params["tStart"] = 1611529200 # 1611442500
-        params["tEnd"] = 1611615600 # 1611528900
+        dt = date.today()
+        dt_mid = int(datetime.combine(dt, datetime.min.time()).timestamp())
+        print("espr", dt_mid, self.sid)
+        params["tStart"] = dt_mid
+        params["tEnd"] = dt_mid + (3600*24)
         r = requests.post("https://{}/dyn/getLogger.json?sid={}".format(self.host, self.sid), json=params, verify=False)
         # result': {'0199-B31DB208'
         out_list = []

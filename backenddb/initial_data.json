@@ -1,0 +1,27 @@
+[
+{
+    "model": "auth.user",
+    "fields": {
+        "password": "pbkdf2_sha256$216000$ctUBWf08eiwm$MblD0cddX2Y8/Juf1KN8jHR1B/AscDGj8W6qTtaQh0I=",
+        "last_login": "2021-01-31T17:35:05.074Z",
+        "is_superuser": true,
+        "username": "admin",
+        "first_name": "",
+        "last_name": "",
+        "email": "a@a.be",
+        "is_staff": true,
+        "is_active": true,
+        "date_joined": "2021-01-26T21:39:29.869Z",
+        "groups": [],
+        "user_permissions": []
+    }
+},
+{
+    "model": "solar.invertertype",
+    "pk": 1,
+    "fields": {
+        "brand": "SunnyBoy",
+        "brand_type": "3.6"
+    }
+}
+]

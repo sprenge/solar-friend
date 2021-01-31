@@ -30,6 +30,33 @@ class GetCurrentPower(Resource):
                 adict = {"current_power": current_power}
                 return adict, 200
 
+
+class GetTodayYield(Resource):
+    '''
+    tbc
+    '''
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument('password', type = str, required = True)
+        self.reqparse.add_argument('host', type = str, required = True)
+        self.reqparse.add_argument('inverter_brand', type = str, required = True)
+        super(GetTodayYield, self).__init__()
+
+    def get(self):
+        '''
+        '''
+        args = self.reqparse.parse_args()
+        if args['inverter_brand'] == "SunnyBoy":
+            sma = SunnyBoyInverter(args['host'], password=args['password'])
+            sma.login()
+            if sma.sid:
+                today_yield = sma.get_today_yield()
+                sma.logout()
+                adict = {"current_power": current_power}
+                return today_yield, 200
+
 api.add_resource(GetCurrentPower, '/inverter/api/v1.0/get_current_power', endpoint = 'get_current_power')
+api.add_resource(GetCurrentPower, '/inverter/api/v1.0/get_today_yield', endpoint = 'get_today_yield')
+
 
 app.run(host="0.0.0.0", port=5200)

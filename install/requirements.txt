@@ -1,0 +1,7 @@
+pyaml
+requests
+pyserial
+Flask
+Flask-RESTful
+matplotlib
+

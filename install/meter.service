@@ -1,0 +1,13 @@
+[Unit]
+Description=meter Service
+After=multi-user.target
+
+[Service]
+WorkingDirectory=/root
+User=root
+Type=idle
+ExecStart=/root/start_solar.sh &> /dev/null
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+apt-get install libatlas-base-dev
+apt-get install libopenjp2-7-dev
+apt install libtiff5
+
+/lib/systemd/system

@@ -1,0 +1,24 @@
+influxdb:
+    db: 'solar'
+    host: '192.168.1.30'
+electricity_meter:
+    type: 'sagemcom_T211'
+    serial_port: '/dev/ttyUSB0'
+solar_system:
+    location:
+        longitude: 4.8
+        latitude: 51.2
+    panels:
+      - name: 'east'
+        number_of_panels: 8
+        azimuth: -90
+        tilt: 10
+        pv: 330
+    inverter:
+        max_power: 3600
+        type: 'SunnyBoy'
+        host: '192.168.1.49'
+        password: 'test'
+    forecast:
+        provider: "solcast"
+        api_key: "xxx"

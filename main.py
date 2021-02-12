@@ -14,9 +14,9 @@ from flask import send_file
 import matplotlib.pyplot as plt
 import numpy as np
 from parse_input import parse
-from electricity_meter.meter import get_meter_value
+from electricity_meter.meter import get_meter_value, meter_types
 from electricity_meter.influxdb import send_frequent_electricity_consumption, send_daily_meter
-from inverter.inverter import get_today_yield, send_daily_yield, get_total_power, send_daily_total_power
+from inverter.inverter import get_today_yield, send_daily_yield, get_total_power, send_daily_total_power, register_inverter, invertor_types
 from solar_forecast.forecast import get_72h_forecast, get_daily_yield
 
 app = Flask(__name__)
@@ -36,6 +36,7 @@ yield_day_after = None
 watt_today = 0
 watt_day_after = 0
 watt_tomorrow = 0
+inverter_ref = None
 
 last_em = None
 stop_the_thread = False
@@ -153,6 +154,7 @@ def periodic_get_meter_value():
         last_em = copy.deepcopy(v)
     else:
         last_em = copy.deepcopy(v)
+    return v
 
 def morning_meter_registration():
     global last_em
@@ -177,18 +179,20 @@ def evening_meter_registration():
             send_daily_meter(epoch, adict, config_influxdb['host'], 'evening')
 
 def read_daily_inverter():
-    global config_inverter
+    global inverter_ref
 
-    if config_inverter:
-        today_yield = get_today_yield(config_inverter)
+    if inverter_ref:
+        today_yield = get_today_yield(inverter_ref)
         send_daily_yield(today_yield, config_influxdb['host'], config_influxdb['db'])
 
 def read_total_power():
-    global config_inverter
-    if config_inverter:
-        total_power = get_total_power(config_inverter)
+    global inverter_ref
+
+    if inverter_ref:
+        total_power = get_total_power(inverter_ref)
         send_daily_total_power(total_power, config_influxdb['host'], config_influxdb['db'])
-        print("total_power", total_power)
+        return total_power
+    return 0
 
 def get_forecast():
     global config_panels
@@ -210,10 +214,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_yaml", nargs='?', default="test.yml", help='Full path to yaml file (default : test.json)')
     parser.add_argument('-d', '--dryrun', action='store_true', help="run in dryrun mode")
+    parser.add_argument('-c', '--capabilities', action='store_true', help="Show capabilities and exit")
     args = parser.parse_args()
 
     if args.dryrun:
         print("Executing dry run")
+    if args.capabilities:
+        print("discovering capabilities now ...")
+        print("solcast is the only forecast provider supported")
+        print("")
+        print("electricity meters supported :")
+        print("----------------------------")
+        for meter in meter_types:
+            print("{} ({})".format(meter, meter_types[meter]))
+        print("")
+        print("inverters supported :")
+        print("----------------------------")
+        for inverter in invertor_types:
+            print(inverter)
+        sys.exit(0)
     config = parse(args.config_yaml)
     if not config:
         print("error in config yaml file")
@@ -222,13 +241,16 @@ if __name__ == "__main__":
         config_influxdb = config['influxdb']
         print("Influxdb client enabled")
     if 'electricity_meter' in config:
-        print("Started the measurement of the electricity meter every 5 minutes")
         config_electricity_meter = config['electricity_meter']
         if args.dryrun:
-            periodic_get_meter_value()
+            print("Start dryrun electricity meter")
+            if not periodic_get_meter_value():
+                print("Cannot retrieve meter value")
+                sys.exit(1)
             morning_meter_registration()
             evening_meter_registration()
         else:
+            print("Started the measurement of the electricity meter every 5 minutes")
             schedule.every(300).seconds.do(periodic_get_meter_value)
             schedule.every().day.at("07:00").do(morning_meter_registration)
             schedule.every().day.at("23:00").do(evening_meter_registration)
@@ -237,9 +259,13 @@ if __name__ == "__main__":
         if 'inverter' in subconfig:
             print("Started inverter daily readout")
             config_inverter = subconfig['inverter']
+            inverter_ref = register_inverter(config_inverter)
             if args.dryrun:
                 # read_daily_inverter()
-                read_total_power()
+                tp = read_total_power()
+                if tp == 0:
+                    print("Cannot read total power of inverter")
+                    sys.exit(1)
             else:
                 schedule.every().day.at("22:00").do(read_daily_inverter)
                 schedule.every().day.at("23:00").do(read_total_power)
@@ -256,10 +282,10 @@ if __name__ == "__main__":
             config_location = subconfig['location']
             if args.dryrun:
                 get_forecast()
-                print("dryrun finished, exit now")
+                print("dryrun finished, everything looks ok")
                 sys.exit(0)
             else:
-                schedule.every().day.at("08:05").do(get_forecast)
+                schedule.every().day.at("07:00").do(get_forecast)
 
         api.add_resource(LastNettoConsumption, '/solar-friend/api/v1.0/last_netto_consumption', endpoint = 'last_netto_consumption')
         api.add_resource(SolarForecast, '/solar-friend/api/v1.0/day_forecast/<day>', endpoint = 'day_forecast')

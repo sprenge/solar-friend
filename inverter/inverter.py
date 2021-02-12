@@ -3,31 +3,23 @@ import time
 import requests
 from inverter.sunny_boy import SunnyBoyInverter
 
-def get_total_power(config):
-    
-    if config['type'] == "SunnyBoy":
-        print("config_inverter", config)
-        sma = SunnyBoyInverter(config['host'], password=config['password'])
-        sma.login()
-        if sma.sid:
-            print("sma.sid", sma.sid)
-            total_power = sma.get_total_power()
-            sma.logout()
-            return total_power
+invertor_types = {
+    "SunnyBoy": SunnyBoyInverter,
+}
+
+
+def register_inverter(config):
+    if config['type'] in invertor_types:
+        inverter_used = invertor_types[config['type']](config)
+        return inverter_used
     return None
 
-def get_today_yield(config):
+def get_total_power(inverter_used):
+    return inverter_used.get_total_power()
 
-    if config['type'] == "SunnyBoy":
-        print("config_inverter", config)
-        sma = SunnyBoyInverter(config['host'], password=config['password'])
-        sma.login()
-        if sma.sid:
-            print("sma.sid", sma.sid)
-            today_yield = sma.get_today_yield()
-            sma.logout()
-            return today_yield
-    return None
+def get_today_yield(inverter_used):
+
+    return inverter_used.get_today_yield()
 
 def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
     if len(today_yield) == 0:
@@ -51,11 +43,8 @@ def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
             istring += 'watt={}'.format(yield_watt)
             millis = start_millis
             istring += ' ' + str(millis) + '{0:06d}'.format(0)
-            print("istring", istring)
-            print("url", url)
             try:
                 r = requests.post(url, data=istring, timeout=5)
-                print(r)
             except Exception as e:
                 print("influxdb post exception", str(e))
 
@@ -72,10 +61,7 @@ def send_daily_total_power(total_power, influx_host, solar_db, influx_port=8086)
     istring += 'watt={}'.format(total_power)
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
-    print("istring", istring)
-    print("url", url)
     try:
         r = requests.post(url, data=istring, timeout=5)
-        print(r)
     except Exception as e:
         print("influxdb post exception", str(e))    

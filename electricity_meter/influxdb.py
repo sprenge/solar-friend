@@ -23,11 +23,8 @@ def send_frequent_electricity_consumption(epoch, val, influx_host, inject=None, 
     istring += 'netto={}'.format(val)
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
-    print("istring", istring)
-    print("url", url)
     try:
         r = requests.post(url, data=istring, timeout=5)
-        print(r)
     except Exception as e:
         print("influxdb post exception", str(e))
 
@@ -53,11 +50,8 @@ def send_daily_meter(epoch, adict, influx_host, period='morning', influx_port=80
     istring = istring[:-1]
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
-    print("istring", istring)
-    print("url", url)
     try:
         r = requests.post(url, data=istring, timeout=5)
-        print(r)
     except Exception as e:
         print("influxdb post exception", str(e))
 

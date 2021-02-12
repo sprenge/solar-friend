@@ -33,6 +33,7 @@ config_location = None
 yield_today = None
 yield_tomorrow = None 
 yield_day_after = None
+watt_today = 0
 watt_day_after = 0
 watt_tomorrow = 0
 
@@ -67,6 +68,7 @@ def today_yield():
     x_axis = np.array([rec for rec in dt])
     vals = np.array([1000*rec['pv'] for rec in yield_today])
 
+    plt.clf()
     plt.plot(x_axis, vals)
     plt.xticks(rotation=45)
     frame_io = io.BytesIO()
@@ -89,14 +91,18 @@ class SolarForecast(Resource):
         '''
         global watt_day_after
         global watt_tomorrow
+        global watt_today
 
         watts = 0
         if day == 'tomorrow':
             watts = watt_tomorrow
         if day == 'day_after':
-            watts = watt_day_after            
+            watts = watt_day_after       
+        if day == 'today':
+            watts = watt_today          
 
-        return watts, 200
+        adict = {"watt": watts}
+        return adict, 200
 
 class LastNettoConsumption(Resource):
     '''
@@ -193,12 +199,12 @@ def get_forecast():
     global yield_day_after
     global watt_tomorrow
     global watt_day_after
+    global watt_today
 
     yield_today, yield_tomorrow, yield_day_after = get_72h_forecast(config_panels, config_forecast, config_location)
+    watt_today = get_daily_yield(yield_today)
     watt_tomorrow = get_daily_yield(yield_tomorrow)
     watt_day_after = get_daily_yield(yield_day_after)
-    print("watt_tomorrow", watt_tomorrow)
-    print("watt_day_after", watt_day_after)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -253,8 +259,7 @@ if __name__ == "__main__":
                 print("dryrun finished, exit now")
                 sys.exit(0)
             else:
-                schedule.every().day.at("07:00").do(get_forecast)
-                schedule.every().day.at("12:00").do(get_forecast)
+                schedule.every().day.at("08:05").do(get_forecast)
 
         api.add_resource(LastNettoConsumption, '/solar-friend/api/v1.0/last_netto_consumption', endpoint = 'last_netto_consumption')
         api.add_resource(SolarForecast, '/solar-friend/api/v1.0/day_forecast/<day>', endpoint = 'day_forecast')

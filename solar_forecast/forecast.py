@@ -25,7 +25,6 @@ def get_72h_forecast(config_panels, config_forecast, config_location):
     '''
     Only one provider supported for the monent : solcast
     '''
-    time_correction = 3600
     processed_forecast_list = []
     api_key = config_forecast['api_key']
     base_url = "https://api.solcast.com.au/"
@@ -54,7 +53,7 @@ def get_72h_forecast(config_panels, config_forecast, config_location):
             cnt = 0
             for rec in data['forecasts']:
                 dt_obj = datetime.datetime.strptime(rec['period_end'], '%Y-%m-%dT%H:%M:%S.0000000Z')
-                epoch = int(dt_obj.timestamp())+time_correction
+                epoch = int(dt_obj.timestamp())-time.timezone
                 if not prev_time:
                     prev_time = epoch
                     continue

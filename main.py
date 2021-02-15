@@ -18,6 +18,7 @@ from electricity_meter.meter import get_meter_value, meter_types
 from electricity_meter.influxdb import send_frequent_electricity_consumption, send_daily_meter
 from inverter.inverter import get_today_yield, send_daily_yield, get_total_power, send_daily_total_power, register_inverter, invertor_types
 from solar_forecast.forecast import get_72h_forecast, get_daily_yield
+from solar_forecast.influxdb import save_forecast
 
 app = Flask(__name__)
 api = Api(app)
@@ -204,11 +205,14 @@ def get_forecast():
     global watt_tomorrow
     global watt_day_after
     global watt_today
+    global config_influxdb
 
     yield_today, yield_tomorrow, yield_day_after = get_72h_forecast(config_panels, config_forecast, config_location)
     watt_today = get_daily_yield(yield_today)
     watt_tomorrow = get_daily_yield(yield_tomorrow)
     watt_day_after = get_daily_yield(yield_day_after)
+    adict = {"today": watt_today, "tomorrow":watt_tomorrow, "day_after": watt_day_after}
+    save_forecast(adict, config_influxdb)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

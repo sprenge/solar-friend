@@ -23,6 +23,8 @@ def parse(afile):
             if 'db' not in subconfig:
                 print('db is a mandatory parameter in influxdb')
                 return None
+            if 'port' not in subconfig:
+                config['influxdb']['port'] = 8086
         if 'electricity_meter' in config:
             subconfig = config['electricity_meter']
             if 'type' not in subconfig:

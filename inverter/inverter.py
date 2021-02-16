@@ -28,7 +28,10 @@ def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
     prev_5min_epoch = int(today_yield[0]['epoch'])
 
     for rec in today_yield:
-        yield_5min = int(rec['watt'])- prev_5min_watt
+        try:
+            yield_5min = int(rec['watt'])- prev_5min_watt
+        except:
+            yield_5min = 0
         if yield_5min > 0:
             epoch = int(rec['epoch'])
             time_elapsed = epoch - prev_5min_epoch

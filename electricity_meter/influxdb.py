@@ -1,7 +1,7 @@
 import os
 import requests
 
-def send_frequent_electricity_consumption(epoch, val, influx_host, inject=None, consume=None, influx_port=8086, solar_db='solar'):
+def send_frequent_electricity_consumption(epoch, balance, config_influxdb, inject=None, consume=None, influx_port=8086):
     '''
     Send frequent consumption measurement (typically each 5 minutes) to influx.
     val in watt : 
@@ -11,7 +11,7 @@ def send_frequent_electricity_consumption(epoch, val, influx_host, inject=None, 
     '''
 
     url_string = 'http://{}:{}/write?db={}'
-    url = url_string.format(influx_host, influx_port, solar_db)
+    url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
     start_millis = int(epoch) * 1000
 
     measurement = "frequent_consumption_measurement"
@@ -20,7 +20,7 @@ def send_frequent_electricity_consumption(epoch, val, influx_host, inject=None, 
          istring += 'inject={},'.format(inject)
     if consume is not None:
         istring += 'consume={},'.format(consume)
-    istring += 'netto={}'.format(val)
+    istring += 'balance={}'.format(balance)
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
     try:
@@ -28,7 +28,7 @@ def send_frequent_electricity_consumption(epoch, val, influx_host, inject=None, 
     except Exception as e:
         print("influxdb post exception", str(e))
 
-def send_daily_meter(epoch, adict, influx_host, period='morning', influx_port=8086, solar_db='solar'):
+def send_daily_meter(epoch, adict, config_influxdb, period='morning'):
     '''
     Send frequent consumption measurement (typically each 5 minutes) to influx.
     val in watt : 
@@ -38,7 +38,7 @@ def send_daily_meter(epoch, adict, influx_host, period='morning', influx_port=80
     '''
 
     url_string = 'http://{}:{}/write?db={}'
-    url = url_string.format(influx_host, influx_port, solar_db)
+    url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
     start_millis = int(epoch) * 1000
 
     measurement = "daily_meter"

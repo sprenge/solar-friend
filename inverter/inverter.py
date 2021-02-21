@@ -21,7 +21,7 @@ def get_today_yield(inverter_used):
 
     return inverter_used.get_today_yield()
 
-def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
+def send_daily_yield(today_yield, config_influxdb):
     if len(today_yield) == 0:
         return
     prev_5min_watt = int(today_yield[0]['watt'])
@@ -38,7 +38,7 @@ def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
             yield_watt = int(3600/time_elapsed*yield_5min)
 
             url_string = 'http://{}:{}/write?db={}'
-            url = url_string.format(influx_host, influx_port, solar_db)
+            url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
             start_millis = int(epoch) * 1000
 
             measurement = "inverter_daily"
@@ -54,14 +54,16 @@ def send_daily_yield(today_yield, influx_host, solar_db, influx_port=8086):
         prev_5min_watt = int(rec['watt'])
         prev_5min_epoch = int(rec['epoch'])
 
-def send_daily_total_power(total_power, influx_host, solar_db, influx_port=8086):
+def send_daily_total_power(total_power, yesterday_total_power, config_influxdb):
     epoch = int(time.time())
     url_string = 'http://{}:{}/write?db={}'
-    url = url_string.format(influx_host, influx_port, solar_db)
+    url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
     start_millis = int(epoch) * 1000
     measurement = "inverter_total_power"
     istring = measurement+',period="{}"'.format("1d")+" "
     istring += 'watt={}'.format(total_power)
+    if yesterday_total_power:
+        istring += ' today={}'.format(total_power-yesterday_total_power)
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
     try:

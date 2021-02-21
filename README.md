@@ -2,7 +2,7 @@
 
 Solar-friend helps you to measure and optimize your electricity consumption inside your home.  the following functions are implemented in this package.
 
-- Electricity meter reading : read frequently (each 5 minutes) consumption/injection and calculate netto consumption.
+- Electricity meter reading : read frequently (each 5 minutes) consumption/injection and calculate the actual electricity balance (Do I consume or inject electricity).
 - Solar invertor data read out
 - Solar forecast yield for the coming 3 days
 
@@ -11,6 +11,10 @@ Solar-friend does not reinvent the wheel for functions that can be full-filled b
 - It is ready to integrate with home assistant (https://www.home-assistant.io/), the number one open source package for automating your home.
 - Meter data (from electricity meter and inverter) are stored in an influxdb database.  How to install influxdb is described below.
 - Data visualization can be done via grafana.  How to install grafana is described below together with some screenshots how to create your custom graphs.
+
+The follow diagram is an example how solar-friend can be deployed (=my home setup in Belgium).  The raspberry pi hosts all software packages and connects to the digital electricity meter (via P1 cable), to the solar inverter and to the internet (forecast).
+
+## ![solar-friend.jpg](./doc/solar-friend.jpg)
 
 # Installation
 
@@ -129,7 +133,7 @@ Check in syslog that you see the following message :  Running on http://0.0.0.0:
 The following endpoint are available (replace host by the IP address on which the solar-friend service is started):
 
 * http://192.168.1.30:5300/solar-friend/api/v1.0/today_yield.png : get graph with the solar yield for today
-* http://192.168.1.30:5300/solar-friend/api/v1.0/last_netto_consumption : returns the current consumption (via the key watt), a negative value indicate that more energy was pulled from the electricity net than injected, a positive value means that more energy is injected in the electricity net than consumed.
+* http://192.168.1.30:5300/solar-friend/api/v1.0/electricity_balance : returns the current consumption (via the key watt), a negative value indicate that more energy was pulled from the electricity net than injected, a positive value means that more energy is injected in the electricity net than consumed.
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/today : returns the forecast (via the key watt) for today
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/tomorrow : returns the forecast (via the key watt) for tomorrow
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/day_afer : returns the forecast (via the key watt) for the day after
@@ -144,7 +148,7 @@ The following endpoint are available (replace host by the IP address on which th
 
 ### frequent_consumption_measurement
 
-*The netto consumption (see API service) is logged every 5 minutes along with the consumption and injection values*
+*The electricity balance (see API service) is logged every 5 minutes along with the consumption and injection values*
 
 ### inverter_daily
 
@@ -164,7 +168,7 @@ Edit now the home assistant yaml file and add following config :
 sensor:
   - platform: rest
     name: last_netto_consumption
-    resource: http://192.168.1.30:5300/solar-friend/api/v1.0/last_netto_consumption
+    resource: http://192.168.1.30:5300/solar-friend/api/v1.0/electricity_balance
     value_template: '{{ value_json.watt }}'
     unit_of_measurement: W
   - platform: rest
@@ -211,7 +215,7 @@ You can do this easily by adding a new dashboard (plus sign on the left side) an
 Once you have the panel follow these steps :
 1) Select your data source created in the previous step.
 2) Select your measurement.
-3) Select the field from the measurement you are interested in.
+3) Select the field from the measurement you are interested in (e.g. balance).
 4) Aggregate per 5 minutes.
 5) Select the time window you are interested in.
 

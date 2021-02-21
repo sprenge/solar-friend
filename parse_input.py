@@ -1,7 +1,7 @@
 import yaml
 
 valid_first_level_keywords = ['electricity_meter', 'influxdb', 'solar_system']
-def parse(afile):
+def parse(afile, debug=False):
 
     config = None
     with open(afile, 'r') as stream:
@@ -10,6 +10,8 @@ def parse(afile):
         except yaml.YAMLError as exc:
             print(exc)
     
+    if debug:
+        print("config from file", config)
     if config:
         for akey in config:
             if akey not in valid_first_level_keywords:

@@ -6,6 +6,9 @@ Solar-friend helps you to measure and optimize your electricity consumption insi
 - Solar invertor data read out
 - Solar forecast yield for the coming 3 days
 
+All measurements are stored into a database in order to perform data analysis lateron.  It could for instance be used lateron to make a correction decision for the selection of a home battery.
+This package will be extended lateron with functions to help you with the optimal choice of a home battery.  The price of home batteries does not guarantee currently return on investment but I expect that prices will decrease in the coming years.
+
 Solar-friend does not reinvent the wheel for functions that can be full-filled by other excellent free available software :
 
 - It is ready to integrate with home assistant (https://www.home-assistant.io/), the number one open source package for automating your home.
@@ -51,7 +54,7 @@ Discover first the types that the current solar-friend version supports :
 ```bash
 python3 main.py --capabilities
 ```
-This list possible values for electricity meter types and inverter types (to be used to fill in the config file correctly
+This lists possible values for electricity meter types and inverter types (to be used to fill in the config file correctly)
 
 Now it is time to create a config file (e.g. /root/config.yml) which contains details about the devices in your home.  Copy first the example config file so you have a template to start from :
 
@@ -117,6 +120,8 @@ Please note that the time is in UTC, not your local time (that is okay)
 
 ## Create service
 
+The next step is to install solar-friend as a service on your raspberry PI, so that it automatically starts in case of power failure at your home.
+
 ```bash
 cp install/start_solar.sh /root
 chmod +x /root/start_solar.sh
@@ -130,7 +135,8 @@ Check in syslog that you see the following message :  Running on http://0.0.0.0:
 
 ## API service
 
-The following endpoint are available (replace host by the IP address on which the solar-friend service is started):
+Solar-friend offers an API service so that it can easily be integrated with other packages (e.g. home assistant).
+The following endpoints are available (replace host by the IP address on which the solar-friend service is started):
 
 * http://192.168.1.30:5300/solar-friend/api/v1.0/today_yield.png : get graph with the solar yield for today
 * http://192.168.1.30:5300/solar-friend/api/v1.0/electricity_balance : returns the current consumption (via the key watt), a negative value indicate that more energy was pulled from the electricity net than injected, a positive value means that more energy is injected in the electricity net than consumed.
@@ -141,7 +147,7 @@ The following endpoint are available (replace host by the IP address on which th
 ## Logging to influx database
 
 *Time based measurements are logged into the influx database indicated in the configuration file (see influx installation)*
-Every measurement has the *time* field, indicating the exact time of recording.
+Every measurement has the *time* field, indicating the exact time of recording.  This measurements are useful for consulting lateron as historical data.
 
 The following measurements are recorded :
 
@@ -257,7 +263,7 @@ The graph represents the moments you inject electricity (you sell energy) which 
 
 ## Development guide
 
-It is possible to add support from electricity meters and inverter that are not yet supported.  I would love to add this in advance but I only have one type of electricity meter and one type of inverter at my home so I cannot really test other types.  Fee free to add new types, please contact me (sprengee54@gmail.com) in case you have questions.
+It is possible to add support from electricity meters and inverter that are not yet supported.  I would love to add this in advance but I only have one type of electricity meter and one type of inverter at my home so I cannot really test other types.  Feel free to add new types, please contact me (sprengee54@gmail.com) in case you have questions.
 
 ### Add electricity meters
 

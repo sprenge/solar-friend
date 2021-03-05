@@ -233,6 +233,10 @@ camera:
 
 Restart your home assistant and you will discover new sensors which you can integrate now in your lovelace panels the way you want.
 
+Screenshot of values integrated in my home assistant 
+
+## ![pic4.jpg](./doc/pic4.jpg)
+
 ## Exploring data with grafana
 
 Open up a browser and navigate to the following url : http://192.168.1.30:3000

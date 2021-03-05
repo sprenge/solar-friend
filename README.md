@@ -75,9 +75,10 @@ The installation of  influxdb (in case you have raspbian buster)
 ```bash
 wget -qO- https://repos.influxdata.com/influxdb.key | sudo apt-key add -
 echo "deb https://repos.influxdata.com/debian buster stable" | sudo tee  /etc/apt/sources.list.d/influxdb.list
+apt-get update
 apt install influxdb
 systemctl unmask influxdb
-systemctl enable 
+systemctl enable influxdb
 systemctl start influxdb
 influx
 > create database solar
@@ -89,7 +90,9 @@ tbc : install retention policy for the database
 ## Installation of grafana 
 
 ```bash
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
 echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee -a /etc/apt/sources.list.d/grafana.list
+apt-get update
 apt-get install -y grafana
 systemctl enable grafana-server
 systemctl start grafana-server

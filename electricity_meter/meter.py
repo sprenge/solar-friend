@@ -29,6 +29,7 @@ def get_meter_value(config):
         adict = meter_profiles[profile]['meter_func'](meter_profiles[profile], config['serial_port'])  # call function
     except Exception as e:
         print("Exception found in get_meter_value", e)
+        return None
     if last_val:
         if 'consumption' not in adict:
             print('consumption not found in get_meter_value', adict)

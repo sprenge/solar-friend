@@ -7,19 +7,44 @@ meter_types = {
     'sagemcom_T211' : 'profile1'
 }
 
+last_val = None
 
 def get_meter_value(config):
     '''
     Public generic function to retrieve digital meter values from electricity meter
-    return a dictionary with for value pairs
-    - returnX (injection in watt) where X is equal to 1,2, ...
-    - consumeX (consumption in watt) where x is equal to 1,2 ...
+    return a dictionary with for key/value pairs
+    - consumption : absolute TOTAL consumption in watt (since commissioning meter)
+    - injection : absolute TOTAL consumption in watt (since commisioning meter)
+    - timestamp : epoch time in seconds
+    - (optional) returnX (injection in watt) where X is equal to 1,2, ...
+    - (optional) consumeX (consumption in watt) where x is equal to 1,2 ...
     '''
+    global last_val
+
     if config['type'] not in meter_types:
         print("not supported meter type")
         return None
     profile = meter_types[config['type']]
     adict = meter_profiles[profile]['meter_func'](meter_profiles[profile], config['serial_port'])  # call function
+    if last_val:
+        if 'consumption' not in adict:
+            print('consumption not found in get_meter_value', adict)
+            return None
+        if 'injection' not in adict:
+            print('injection not found in get_meter_value', adict)
+            return None            
+        if adict['consumption'] < last_val['consumption']:
+            print('inconsistency in get_meter_value', adict, last_val)
+            return None
+        if adict['injection'] < last_val['injection']:
+            print('inconsistency in get_meter_value', adict, last_val)
+            return None            
+        last_val = copy.deepcopy(adict)
+    else:
+        last_val = copy.deepcopy(adict)
+
+    adict['timestamp'] = int(time.time())
+    
     return adict
 
 def val_profile1(profile_data, serial_port):
@@ -38,13 +63,25 @@ def val_profile1(profile_data, serial_port):
     ser.timeout = 12
     ser.port = serial_port
 
+    fields_expected = ['consume1', 'consume2', 'return1', 'return2']
     adict = {}
     ser.open()
     checksum_found = False
+    safety_loop_cnt = 0
     while not checksum_found:
         telegram_line = ser.readline()  # Read in serial line.
         if re.match(b'(?=!)', telegram_line):
-            checksum_found = True
+            for afield in fields_expected:
+                if afield not in adict:
+                    print("field not found in meter readout", afield)
+            else:
+                try:
+                    adict['consumption'] = int(adict['consume1']) + int(adict['consume2'])
+                    adict['injection'] = int(adict['return1']) + int(adict['return2'])
+                    checksum_found = True
+                except Exception as e:
+                    print("exception found in meter readout during calculation")
+                    print(e)
         try:
             ser_data = telegram_line.decode('ascii').strip()
             match = re.match('.*1-0:(\d)\.8\.(\d)\((\d+)\.(\d+)\*kWh.*', ser_data)
@@ -57,7 +94,12 @@ def val_profile1(profile_data, serial_port):
                 adict[akey] = watt
         except Exception as e:
             pass
-    adict['timestamp'] = int(time.time())
+        safety_loop_cnt += 1
+        if safety_loop_cnt > 300:
+            print("safety_loop_cnt exceeded")
+            checksum_found = True
+            adict = {}
+    
     ser.close()
     return adict
 

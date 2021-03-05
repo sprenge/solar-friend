@@ -13,6 +13,8 @@ from flask_restful import Resource, Api, reqparse
 from flask import send_file
 import matplotlib.pyplot as plt
 import numpy as np
+import influxdb
+import requests
 from parse_input import parse
 from electricity_meter.meter import get_meter_value, meter_types
 from electricity_meter.influxdb import send_frequent_electricity_consumption, send_daily_meter
@@ -23,8 +25,10 @@ from solar_forecast.influxdb import save_forecast
 app = Flask(__name__)
 api = Api(app)
 
+VERSION = "0.1"
 time_read_inverter_daily = "22:00"
-time_read_inverter_power = "23:02"  # a little bit later than meter reading
+time_read_inverter_power = "23:02"
+time_self_consumption = "23:15" # a little bit later than meter reading / inverter reading
 time_read_meter_evening = "23:00"
 time_read_meter_morning = "07:00"
 time_read_forecast = "07:30"
@@ -46,11 +50,10 @@ watt_tomorrow = 0
 inverter_ref = None
 debug = False
 
-last_em = None  # meter value refreshed each 5 minutes
-last_daily_em = None  # meter values refreshed twice a day
-yesterday_em = None
-yesterday_total_power = None
+last_meter_value = None # meter value refreshed every 5 minutes
 stop_the_thread = False
+self_yesterday = 0
+cons_yesterday = 0
 
 def signal_handler(sig, frame):
     '''
@@ -66,7 +69,10 @@ def handle_schedule():
     Main thread for all scheduled functions
     '''
     while not stop_the_thread:
-        schedule.run_pending()
+        try:
+            schedule.run_pending()
+        except Exception as e:
+            print("solar thread exception detected", e)
         time.sleep(1)
     signal.pause()
 
@@ -87,7 +93,6 @@ def today_yield():
     for rec in yield_today:
         value = datetime.datetime.fromtimestamp(rec['time'])
         tt = value.strftime('%H:%M')
-        print(tt)
         dt.append(tt)
 
     x_axis = np.array([rec for rec in dt])
@@ -128,6 +133,25 @@ class SolarForecast(Resource):
             print("SolarForecast", adict)
         return adict, 200
 
+class BalanceYesterday(Resource):
+    '''
+    Get the consumption figures of yesterday (in watt) 
+    '''
+    def __init__(self):
+        super(BalanceYesterday, self).__init__()
+
+    def get(self):
+        '''
+        '''
+        global self_yesterday
+        global cons_yesterday
+
+        adict = {"self_yesterday": self_yesterday, "cons_yesterday": cons_yesterday}
+        if debug:
+            print("Yesterday", adict)        
+        return adict, 200
+
+
 class ElectricityBalance(Resource):
     '''
     Get the cached balance figure (in watt) 
@@ -149,16 +173,16 @@ class ElectricityBalance(Resource):
         return adict, 200
 
 def calculate_electricity_consumption(current_measurement):
-    global last_em
     global last_balance
+    global last_meter_value
     global debug
 
-    time_elapsed = current_measurement['timestamp'] - last_em['timestamp']
+    time_elapsed = current_measurement['timestamp'] - last_meter_value['timestamp']
     mf = 3600/time_elapsed  # multiplication for watts/h
-    last_return = last_em['return1'] + last_em['return2']
-    last_consume = last_em['consume1'] + last_em['consume2']
-    return_now = current_measurement['return1'] + current_measurement['return2']
-    consume_now = current_measurement['consume1'] + current_measurement['consume2']
+    last_return = last_meter_value['injection']
+    last_consume = last_meter_value['consumption']
+    return_now = current_measurement['injection']
+    consume_now = current_measurement['consumption']
     
     balance = ((return_now-last_return)-(consume_now-last_consume))*mf
     last_balance = int(balance)
@@ -172,74 +196,88 @@ def calculate_electricity_consumption(current_measurement):
     return int(balance), int(injection), int(consumption)
 
 def periodic_get_meter_value():
-    global last_em
+    global last_meter_value
     global config_influxdb
     global debug
 
     v = get_meter_value(config_electricity_meter)
     if debug:
-        print("meter values", v, last_em)
-    if last_em:
+        print("meter values", v, last_meter_value)
+    if last_meter_value:
         balance, injection, consumption = calculate_electricity_consumption(v)
         if config_influxdb:
             # send report to influx db
             send_frequent_electricity_consumption(v['timestamp'], balance, config_influxdb, inject=injection, consume=consumption)
-        last_em = copy.deepcopy(v)
+        last_meter_value = copy.deepcopy(v)
     else:
-        last_em = copy.deepcopy(v)
+        last_meter_value = copy.deepcopy(v)
     return v
 
+import influxdb
+
+def diff_twice_a_day(current_meter, morning_or_evening):
+    global config_influxdb
+
+    try:
+        client = influxdb.InfluxDBClient(host=config_influxdb['host'], port=config_influxdb['port'])
+        client.switch_database(config_influxdb['db'])
+        query = "select * FROM daily_meter WHERE time > now() - 18h and \"period\"='\"{}\"'".format(morning_or_evening)
+        results = client.query(query)
+        total_meter_rows = results.raw['series'][0]['values']
+        idx = 0
+        col2idx_meter = {}
+        for col in results.raw['series'][0]['columns']:
+            col2idx_meter[col] = idx
+            idx += 1
+
+        if len(total_meter_rows) == 1:
+            cons1 = int(total_meter_rows[0][col2idx_meter['consumption']])
+            inj1 = int(total_meter_rows[0][col2idx_meter['injection']])
+            day_cons = current_meter['consumption']-cons1
+            day_inj = current_meter['injection'] - inj1
+
+            return day_cons, day_inj
+
+    except Exception as e:
+        print("diff_twice_a_day exception", e)
+
+    return None, None
+
+
 def morning_meter_registration():
-    global last_em
-    global last_daily_em
+    global last_meter_value
     global config_influxdb
     global debug
 
-    if debug:
-        print("last_em", last_em)
-    
-    if not last_daily_em:
-        last_daily_em = copy.deepcopy(last_em)
-        return
-
-    if last_em:
-        epoch = last_em['timestamp']
-        adict = copy.deepcopy(last_em)
+    if last_meter_value:
+        if debug:
+            print("morning_meter_registration", last_meter_value)        
+        epoch = last_meter_value['timestamp']
+        adict = copy.deepcopy(last_meter_value)
         del adict['timestamp']
         if config_influxdb:
-            adict['injection_delta'] = (adict['return1']+adict['return2']) - (last_daily_em['return1']+last_daily_em['return2'])
-            adict['consumption_delta'] = (adict['consume1']+adict['consume2']) - (last_daily_em['consume1']+last_daily_em['consume2'])
+            consumption_delta, injection_delta = diff_twice_a_day(last_meter_value, "evening")
+            if consumption_delta:
+                adict['consumption_delta'] = consumption_delta
+                adict['injection_delta'] = injection_delta
             send_daily_meter(epoch, adict, config_influxdb, 'morning')
 
-        last_daily_em = copy.deepcopy(last_em)
 
 def evening_meter_registration():
-    global last_em
-    global last_daily_em
-    global yesterday_em
+    global last_meter_value
     global config_influxdb
     global debug
+    # tbc adict['injection_delta'], adict['consumption_delta']
 
-    if not last_daily_em:
-        last_daily_em = copy.deepcopy(last_em)
-        return
-
-    if last_em:
+    if last_meter_value:
         if debug:
-            print("evening_meter_registration", last_em)
-        epoch = last_em['timestamp']
-        adict = copy.deepcopy(last_em)
+            print("evening_meter_registration", last_meter_value)
+        epoch = last_meter_value['timestamp']
+        adict = copy.deepcopy(last_meter_value)
         del adict['timestamp']
         if config_influxdb:
-            adict['injection_delta'] = (adict['return1']+adict['return2']) - (last_daily_em['return1']+last_daily_em['return2'])
-            adict['consumption_delta'] = (adict['consume1']+adict['consume2']) - (last_daily_em['consume1']+last_daily_em['consume2'])
-            if yesterday_em:
-                pass
-            else:
-                yesterday_em = copy.deepcopy(last_em)
             send_daily_meter(epoch, adict, config_influxdb, 'evening')
 
-        last_daily_em = copy.deepcopy(last_em)
 
 def read_daily_inverter():
     global inverter_ref
@@ -254,16 +292,76 @@ def read_daily_inverter():
 def read_total_power():
     global inverter_ref
     global debug
-    global yesterday_total_power
 
     if inverter_ref:
         total_power = get_total_power(inverter_ref)
         if debug:
             print("read_total_power", total_power)        
-        send_daily_total_power(total_power, yesterday_total_power, config_influxdb)
-        yesterday_total_power = total_power
+        send_daily_total_power(total_power, config_influxdb)
         return total_power
     return 0
+
+def calc_daily_self_consumption():
+    global config_influxdb
+    global self_yesterday
+    global cons_yesterday
+
+    solar_yield = None
+    day_cons = None
+    day_inj = None
+
+    try:
+        client = influxdb.InfluxDBClient(host=config_influxdb['host'], port=config_influxdb['port'])
+        client.switch_database(config_influxdb['db'])
+        query = "select * FROM inverter_total_power WHERE time > now() - 30h"
+        results = client.query(query)
+        total_inv_rows = results.raw['series'][0]['values']
+        idx = 0
+        col2idx_inv = {}
+        for col in results.raw['series'][0]['columns']:
+            col2idx_inv[col] = idx
+            idx += 1
+
+        if len(total_inv_rows) == 2:
+            solar_yield = int(total_inv_rows[1][col2idx_inv['watt']] - total_inv_rows[0][col2idx_inv['watt']])
+
+        query = "select * FROM daily_meter WHERE time > now() - 30h and \"period\"='\"evening\"'"
+        results = client.query(query)
+        total_meter_rows = results.raw['series'][0]['values']
+        idx = 0
+        col2idx_meter = {}
+        for col in results.raw['series'][0]['columns']:
+            col2idx_meter[col] = idx
+            idx += 1
+        if len(total_meter_rows) == 2:
+            cons1 = int(total_meter_rows[0][col2idx_meter['consumption']])
+            inj1 = int(total_meter_rows[0][col2idx_meter['injection']])
+            cons2 = int(total_meter_rows[1][col2idx_meter['consumption']])
+            inj2 = int(total_meter_rows[1][col2idx_meter['injection']] )
+            day_cons = cons2-cons1
+            day_inj = inj2 - inj1
+            cons_yesterday = day_cons
+    except Exception as e:
+        print(e)
+    
+    if solar_yield and day_cons and day_inj:
+        url_string = 'http://{}:{}/write?db={}'
+        url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
+        start_millis = int(time.time()) * 1000
+
+        measurement = "self_consumption"
+        istring = measurement+',period="{}"'.format("1d")+" "
+        istring += 'solar_day_yield={},'.format(solar_yield)
+        istring += 'day_inj={},'.format(day_inj)
+        istring += 'day_cons={},'.format(day_cons)
+        self_yesterday = solar_yield-day_inj
+        istring += 'day_self={}'.format(self_yesterday)
+        millis = start_millis
+        istring += ' ' + str(millis) + '{0:06d}'.format(0)
+        try:
+            r = requests.post(url, data=istring, timeout=5)
+        except Exception as e:
+            print("influxdb post exception", str(e))
 
 def get_forecast():
     global config_panels
@@ -291,15 +389,18 @@ def get_forecast():
     save_forecast(adict, config_influxdb)
 
 if __name__ == "__main__":
+    print("Starting solar-friend, version ", VERSION)
     parser = argparse.ArgumentParser()
     parser.add_argument("config_yaml", nargs='?', default="test.yml", help='Full path to yaml file (default : test.json)')
     parser.add_argument('-d', '--dryrun', action='store_true', help="run in dryrun mode")
     parser.add_argument('-c', '--capabilities', action='store_true', help="Show capabilities and exit")
     parser.add_argument('-v', '--verbose', action='store_true', help="output more traces to syslog")
+    parser.add_argument('-p', '--pretest', action='store_true', help="for debug testing")
     args = parser.parse_args()
 
     if args.dryrun:
         print("Executing dry run")
+
     if args.capabilities:
         print("discovering capabilities now ...")
         print("solcast is the only forecast provider supported")
@@ -323,7 +424,11 @@ if __name__ == "__main__":
         sys.exit(1)
     if 'influxdb' in config:
         config_influxdb = config['influxdb']
+        solar_db = config_influxdb['db']
         print("Influxdb client enabled")
+    if args.pretest:
+        calc_daily_self_consumption()
+        sys.exit(0)
     if 'electricity_meter' in config:
         config_electricity_meter = config['electricity_meter']
         if args.dryrun:
@@ -353,6 +458,8 @@ if __name__ == "__main__":
             else:
                 schedule.every().day.at(time_read_inverter_daily).do(read_daily_inverter)
                 schedule.every().day.at(time_read_inverter_power).do(read_total_power)
+                if 'electricity_meter' in config:
+                    schedule.every().day.at(time_self_consumption).do(calc_daily_self_consumption)
         if 'panels' in subconfig:
             if 'forecast' not in subconfig:
                 print("error : forecast must be provided in case panels is defined")
@@ -373,6 +480,7 @@ if __name__ == "__main__":
 
         api.add_resource(ElectricityBalance, '/solar-friend/api/v1.0/electricity_balance', endpoint = 'electricity_balance')
         api.add_resource(SolarForecast, '/solar-friend/api/v1.0/day_forecast/<day>', endpoint = 'day_forecast')
+        api.add_resource(BalanceYesterday, '/solar-friend/api/v1.0/balance_yesterday', endpoint = 'balance_yesterday')
         schedule_handler = threading.Thread(target=handle_schedule, args=())
         schedule_handler.start()
         signal.signal(signal.SIGINT, signal_handler)

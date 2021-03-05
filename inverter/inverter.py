@@ -51,10 +51,13 @@ def send_daily_yield(today_yield, config_influxdb):
             except Exception as e:
                 print("influxdb post exception", str(e))
 
-        prev_5min_watt = int(rec['watt'])
-        prev_5min_epoch = int(rec['epoch'])
+        try:
+            prev_5min_watt = int(rec['watt'])
+            prev_5min_epoch = int(rec['epoch'])
+        except Exception as e:
+            print(e)
 
-def send_daily_total_power(total_power, yesterday_total_power, config_influxdb):
+def send_daily_total_power(total_power, config_influxdb):
     epoch = int(time.time())
     url_string = 'http://{}:{}/write?db={}'
     url = url_string.format(config_influxdb['host'], config_influxdb['port'], config_influxdb['db'])
@@ -62,8 +65,6 @@ def send_daily_total_power(total_power, yesterday_total_power, config_influxdb):
     measurement = "inverter_total_power"
     istring = measurement+',period="{}"'.format("1d")+" "
     istring += 'watt={}'.format(total_power)
-    if yesterday_total_power:
-        istring += ' today={}'.format(total_power-yesterday_total_power)
     millis = start_millis
     istring += ' ' + str(millis) + '{0:06d}'.format(0)
     try:

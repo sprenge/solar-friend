@@ -6,8 +6,11 @@ After=multi-user.target
 WorkingDirectory=/root
 User=root
 Type=idle
-ExecStart=/root/start_solar.sh &> /dev/null
+ExecStart=/root/start_solar.sh
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
+
+[Service]
+Environment=PYTHONUNBUFFERED=1

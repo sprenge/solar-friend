@@ -4,4 +4,4 @@ pyserial
 Flask
 Flask-RESTful
 matplotlib
-
+influxdb

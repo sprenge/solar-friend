@@ -25,7 +25,10 @@ def get_meter_value(config):
         print("not supported meter type")
         return None
     profile = meter_types[config['type']]
-    adict = meter_profiles[profile]['meter_func'](meter_profiles[profile], config['serial_port'])  # call function
+    try:
+        adict = meter_profiles[profile]['meter_func'](meter_profiles[profile], config['serial_port'])  # call function
+    except Exception as e:
+        print("Exception found in get_meter_value", e)
     if last_val:
         if 'consumption' not in adict:
             print('consumption not found in get_meter_value', adict)

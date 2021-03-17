@@ -109,7 +109,7 @@ def today_yield():
 
 class SolarForecast(Resource):
     '''
-    Get the cached forecast figure (total yield in watt for the desired day) for one of the coming days (days, tomorrow or day after).
+    Get the cached forecast figures (total yield in watt for the desired day) for one of the coming days (days, tomorrow or day after).
     '''
     def __init__(self):
         super(SolarForecast, self).__init__()
@@ -135,7 +135,7 @@ class SolarForecast(Resource):
 
 class BalanceYesterday(Resource):
     '''
-    Get the consumption figures of yesterday (in watt) 
+    Calcuate the balance figures of yesterday.
     '''
     def __init__(self):
         super(BalanceYesterday, self).__init__()
@@ -173,6 +173,9 @@ class ElectricityBalance(Resource):
         return adict, 200
 
 def calculate_electricity_consumption(current_measurement):
+    '''
+    Calculate current electricity balance, injection and consumption
+    '''
     global last_balance
     global last_meter_value
     global debug
@@ -196,6 +199,9 @@ def calculate_electricity_consumption(current_measurement):
     return int(balance), int(injection), int(consumption)
 
 def periodic_get_meter_value():
+    '''
+    Get new meter values (typically trigger every 5 minutes) and return them as a dictionary
+    '''
     global last_meter_value
     global config_influxdb
     global debug
@@ -216,6 +222,9 @@ def periodic_get_meter_value():
 import influxdb
 
 def diff_twice_a_day(current_meter, morning_or_evening):
+    '''
+    Calculate the half consumption/injection and return the values in watt
+    '''
     global config_influxdb
 
     try:
@@ -245,6 +254,9 @@ def diff_twice_a_day(current_meter, morning_or_evening):
 
 
 def morning_meter_registration():
+    '''
+    Register the morning values (cached values) and log them into the influx database
+    '''
     global last_meter_value
     global config_influxdb
     global debug
@@ -264,10 +276,12 @@ def morning_meter_registration():
 
 
 def evening_meter_registration():
+    '''
+    Register the evening values (cached values) and log them into the influx database
+    '''
     global last_meter_value
     global config_influxdb
     global debug
-    # tbc adict['injection_delta'], adict['consumption_delta']
 
     if last_meter_value:
         if debug:
@@ -276,10 +290,17 @@ def evening_meter_registration():
         adict = copy.deepcopy(last_meter_value)
         del adict['timestamp']
         if config_influxdb:
+            consumption_delta, injection_delta = diff_twice_a_day(last_meter_value, "morning")
+            if consumption_delta:
+                adict['consumption_delta'] = consumption_delta
+                adict['injection_delta'] = injection_delta
             send_daily_meter(epoch, adict, config_influxdb, 'evening')
 
 
 def read_daily_inverter():
+    '''
+    Read the todays values of the inverter (typically 5 minute values) at the end of the day (after sunset) and write into influx database
+    '''
     global inverter_ref
     global debug
 
@@ -290,6 +311,9 @@ def read_daily_inverter():
         send_daily_yield(today_yield, config_influxdb)
 
 def read_total_power():
+    '''
+    Read the absolute total power (in watt since the installation of the inverter) after sunset and write into influx database
+    '''
     global inverter_ref
     global debug
 
@@ -302,6 +326,9 @@ def read_total_power():
     return 0
 
 def calc_daily_self_consumption():
+    '''
+    Calculate the todays self consumption, along with injection and consumption figures and write into influx database
+    '''
     global config_influxdb
     global self_yesterday
     global cons_yesterday
@@ -364,6 +391,9 @@ def calc_daily_self_consumption():
             print("influxdb post exception", str(e))
 
 def get_forecast():
+    '''
+    Get the solar forecast for the next three days, write into the influx database and return these values
+    '''
     global config_panels
     global config_forecast
     global config_location
@@ -389,6 +419,9 @@ def get_forecast():
     save_forecast(adict, config_influxdb)
 
 if __name__ == "__main__":
+    '''
+    Starting point of the solar-friend application
+    '''
     print("Starting solar-friend, version ", VERSION)
     parser = argparse.ArgumentParser()
     parser.add_argument("config_yaml", nargs='?', default="test.yml", help='Full path to yaml file (default : test.json)')
@@ -471,8 +504,8 @@ if __name__ == "__main__":
             config_panels = subconfig['panels']
             config_forecast = subconfig['forecast']
             config_location = subconfig['location']
+            get_forecast()
             if args.dryrun:
-                get_forecast()
                 print("dryrun finished, everything looks ok")
                 sys.exit(0)
             else:
@@ -482,7 +515,7 @@ if __name__ == "__main__":
         api.add_resource(SolarForecast, '/solar-friend/api/v1.0/day_forecast/<day>', endpoint = 'day_forecast')
         api.add_resource(BalanceYesterday, '/solar-friend/api/v1.0/balance_yesterday', endpoint = 'balance_yesterday')
         schedule_handler = threading.Thread(target=handle_schedule, args=())
-        schedule_handler.start()
-        signal.signal(signal.SIGINT, signal_handler)
+        schedule_handler.start()  # run scheduler thread
+        signal.signal(signal.SIGINT, signal_handler)  # graceful thread shutdown support
 
-        app.run(host="0.0.0.0", port=5300)
+        app.run(host="0.0.0.0", port=5300)  # run webserver

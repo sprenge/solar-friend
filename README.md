@@ -146,6 +146,7 @@ The following endpoints are available (replace host by the IP address on which t
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/today : returns the forecast (via the key watt) for today
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/tomorrow : returns the forecast (via the key watt) for tomorrow
 * http://192.168.1.30:5300/solar-friend/api/v1.0/day_forecast/day_afer : returns the forecast (via the key watt) for the day after
+* http://192.168.1.30:5300/solar-friend/api/v1.0/meter_values : get back the meter values (injection and consumption)
 
 ## Logging to influx database
 
@@ -199,7 +200,7 @@ These measurements are created at the end of the day
 
 All values in watt.  This measurement is generated at the end of the day based on existing measurements (only if they are present).
 
-## Link to home assistant
+## Link to home assistant as sensor
 
 Make sure you know the IP address of the host where the solar-friend service is running and make sure that home assistant can reach that IP address.  Please replace the IP address mentioned below (192.168.1.30) with the IP address of your own service.
 
@@ -239,6 +240,22 @@ Restart your home assistant and you will discover new sensors which you can inte
 Screenshot of values integrated in my home assistant 
 
 ## ![pic4.jpg](./doc/pic4.jpg)
+
+## link to home assistant via the custom integration component provided in this package
+
+Copy the custom_components directory to the config/custom_components directory (so you install a custom integration) of your installation and restart home assistant.
+
+Add now following config to your configuration.yaml and restart home assistant.  You should see two new sensors now (injection/consumption).
+
+```yaml
+sensor:
+  - platform: electricity_meter
+    scan_interval: 60
+    host: 192.168.1.30
+```
+
+The integration component talks now to the daemon and two sensor are added (injection/consumption) that can be used in the Energy tab (new in home assistant 2021.8.1).
+
 
 ## Exploring data with grafana
 

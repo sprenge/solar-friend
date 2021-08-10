@@ -152,6 +152,24 @@ class BalanceYesterday(Resource):
         return adict, 200
 
 
+class GetMeterValues(Resource):
+    '''
+    Absolute injection meter value in kWh
+    '''
+    def __init__(self):
+        super(GetMeterValues, self).__init__()
+
+    def get(self):
+        '''
+        '''
+        v = get_meter_value(config_electricity_meter)
+
+        adict = {"injection": str(v['injection']/1000), "consumption": str(v['consumption']/1000)}
+        if debug:
+            print("Yesterday", adict)        
+        return adict, 200
+
+
 class ElectricityBalance(Resource):
     '''
     Get the cached balance figure (in watt) 
@@ -511,6 +529,7 @@ if __name__ == "__main__":
             else:
                 schedule.every().day.at(time_read_forecast).do(get_forecast)
 
+        api.add_resource(GetMeterValues, '/solar-friend/api/v1.0/meter_values', endpoint = 'meter_values')
         api.add_resource(ElectricityBalance, '/solar-friend/api/v1.0/electricity_balance', endpoint = 'electricity_balance')
         api.add_resource(SolarForecast, '/solar-friend/api/v1.0/day_forecast/<day>', endpoint = 'day_forecast')
         api.add_resource(BalanceYesterday, '/solar-friend/api/v1.0/balance_yesterday', endpoint = 'balance_yesterday')

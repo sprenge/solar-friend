@@ -1,0 +1,10 @@
+{  
+  "domain": "electricity_meter",  
+  "name": "electricity_meter",  
+  "version": "1.0.0",
+  "documentation": "https://www.example.com",  
+  "dependencies": [],  
+  "codeowners": [],  
+  "requirements": [],  
+  "iot_class": "local_polling"
+}

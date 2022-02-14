@@ -5,3 +5,4 @@ Flask
 Flask-RESTful
 matplotlib
 influxdb
+schedule

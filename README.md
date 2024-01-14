@@ -303,4 +303,4 @@ Extra fields can be added to the dictionary and these fields will be logged in t
 ### Add inverter type
 
 New inverter types can be added by adding entries to the variable invertor_types in inverter/inverter.py
-Each inverter type has to be linked to an implemented inverter class which inherits from the class InvertorBase (see inverter/base.py).
+Each inverter type has to be linked to an implemented inverter class which inherits from the class InvertorBase (see inverter/base.py)

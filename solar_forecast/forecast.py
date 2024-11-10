@@ -34,6 +34,9 @@ def get_72h_forecast(config_panels, config_forecast, config_location):
     params['longitude'] = config_location['longitude']
     params['latitude'] = config_location['latitude']
     params['hours'] = 72
+    yield_today = []
+    yield_tomorrow = []
+    yield_day_after = []
 
     url = base_url + 'world_pv_power/forecasts'
     time_dict = {}

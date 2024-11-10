@@ -1,4 +1,5 @@
 import os
+import traceback
 import io
 import sys
 import time
@@ -73,6 +74,7 @@ def handle_schedule():
             schedule.run_pending()
         except Exception as e:
             print("solar thread exception detected", e)
+            print(traceback.format_exc())
         time.sleep(1)
     signal.pause()
 
@@ -164,7 +166,11 @@ class GetMeterValues(Resource):
         '''
         v = get_meter_value(config_electricity_meter)
 
-        adict = {"injection": str(v['injection']/1000), "consumption": str(v['consumption']/1000)}
+        adict = {}
+        try:
+            adict = {"injection": str(v['injection']/1000), "consumption": str(v['consumption']/1000)}
+        except:
+            print(v)
         if debug:
             print("Yesterday", adict)        
         return adict, 200
@@ -224,11 +230,21 @@ def periodic_get_meter_value():
     global config_influxdb
     global debug
 
-    v = get_meter_value(config_electricity_meter)
+    v = 1
+    try:
+        v = get_meter_value(config_electricity_meter)
+    except Exception as e:
+        print("periodic failed !!!")
+        print(e)
+        return v
     if debug:
         print("meter values", v, last_meter_value)
     if last_meter_value:
-        balance, injection, consumption = calculate_electricity_consumption(v)
+        try:
+            balance, injection, consumption = calculate_electricity_consumption(v)
+        except Exception as e:
+            print(f"calculate_electricity_consumption exception : {e}")
+            return v
         if config_influxdb:
             # send report to influx db
             send_frequent_electricity_consumption(v['timestamp'], balance, config_influxdb, inject=injection, consume=consumption)

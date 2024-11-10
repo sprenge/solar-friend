@@ -30,6 +30,8 @@ def get_meter_value(config):
     except Exception as e:
         print("Exception found in get_meter_value", e)
         return None
+    if not adict:
+        return None
     if last_val:
         if 'consumption' not in adict:
             print('consumption not found in get_meter_value', adict)
@@ -39,9 +41,11 @@ def get_meter_value(config):
             return None            
         if adict['consumption'] < last_val['consumption']:
             print('inconsistency in get_meter_value', adict, last_val)
+            last_val = None
             return None
         if adict['injection'] < last_val['injection']:
             print('inconsistency in get_meter_value', adict, last_val)
+            last_val = None
             return None            
         last_val = copy.deepcopy(adict)
     else:
@@ -70,14 +74,18 @@ def val_profile1(profile_data, serial_port):
     fields_expected = ['consume1', 'consume2', 'return1', 'return2']
     adict = {}
     ser.open()
+    exception_fnd = False
     checksum_found = False
     safety_loop_cnt = 0
     while not checksum_found:
         telegram_line = ser.readline()  # Read in serial line.
+        print(f"debug espr {telegram_line}")
         if re.match(b'(?=!)', telegram_line):
             for afield in fields_expected:
                 if afield not in adict:
                     print("field not found in meter readout", afield)
+                    print(telegram_line)
+                    exception_fnd = True
             else:
                 try:
                     adict['consumption'] = int(adict['consume1']) + int(adict['consume2'])
@@ -86,6 +94,7 @@ def val_profile1(profile_data, serial_port):
                 except Exception as e:
                     print("exception found in meter readout during calculation")
                     print(e)
+                    exception_fnd = True
         try:
             ser_data = telegram_line.decode('ascii').strip()
             match = re.match('.*1-0:(\d)\.8\.(\d)\((\d+)\.(\d+)\*kWh.*', ser_data)
@@ -102,9 +111,12 @@ def val_profile1(profile_data, serial_port):
         if safety_loop_cnt > 300:
             print("safety_loop_cnt exceeded")
             checksum_found = True
+            exception_fnd = True
             adict = {}
     
     ser.close()
+    if exception_fnd:
+       return None
     return adict
 
 

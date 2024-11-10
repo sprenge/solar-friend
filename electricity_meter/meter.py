@@ -72,14 +72,14 @@ def val_profile1(profile_data, serial_port):
     ser.port = serial_port
 
     fields_expected = ['consume1', 'consume2', 'return1', 'return2']
-    adict = {}
+    i_translate = {"31": "1", "51": "2", "71": "3"}
+    adict = {"i1": 128.0, "i2": 128.0, "i3": 128.0, "w1": 0, "w2": 0}
     ser.open()
     exception_fnd = False
     checksum_found = False
     safety_loop_cnt = 0
     while not checksum_found:
         telegram_line = ser.readline()  # Read in serial line.
-        print(f"debug espr {telegram_line}")
         if re.match(b'(?=!)', telegram_line):
             for afield in fields_expected:
                 if afield not in adict:
@@ -107,6 +107,25 @@ def val_profile1(profile_data, serial_port):
                 adict[akey] = watt
         except Exception as e:
             pass
+        try:
+            ser_data = telegram_line.decode('ascii').strip()
+            regex = r'1-0:(\d+)\.(7)\.(\d+)\((\d+(\.\d+)?)\*A\)'
+            match = re.match(regex, ser_data)
+            if match:
+                phase = i_translate[match.group(1)]
+                adict[f'i{phase}'] = float(match.group(4))
+        except Exception as e:
+            print(e)
+        try:
+            ser_data = telegram_line.decode('ascii').strip()
+            regex = r'1-0:(\d+)\.(7)\.(\d+)\((\d+(\.\d+)?)\*kW\)'
+            match = re.match(regex, ser_data)
+            if match:
+                inout = match.group(1)
+                if inout == '1' or inout == '2':
+                    adict[f'w{inout}'] = int(float(match.group(4))*1000)
+        except Exception as e:
+            print(f'except2 {e}')            
         safety_loop_cnt += 1
         if safety_loop_cnt > 300:
             print("safety_loop_cnt exceeded")

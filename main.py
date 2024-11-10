@@ -35,6 +35,12 @@ time_read_meter_morning = "07:00"
 time_read_forecast = "07:30"
 
 last_balance = 0
+last_w1 = 0
+last_w2 = 0
+last_wtotal = 0
+i1 = 0.0
+i2 = 0.0
+i3 = 0.0
 forecast_raw = None
 config_electricity_meter = None
 config_influxdb = None
@@ -135,6 +141,9 @@ class SolarForecast(Resource):
             print("SolarForecast", adict)
         return adict, 200
 
+def calculate_balance_from_current():
+    pass
+
 class BalanceYesterday(Resource):
     '''
     Calcuate the balance figures of yesterday.
@@ -164,11 +173,27 @@ class GetMeterValues(Resource):
     def get(self):
         '''
         '''
+        global last_w1
+        global last_w2
+        global last_wtotal
         v = get_meter_value(config_electricity_meter)
 
         adict = {}
         try:
-            adict = {"injection": str(v['injection']/1000), "consumption": str(v['consumption']/1000)}
+            if v['w1'] > 0:
+                last_w1 = v['w1']
+                last_wtotal = 0 - last_w1
+            if v['w2'] > 0:
+                last_w2 = v['w2'] 
+                last_total = last_w2   
+            adict = {
+                "injection": str(v['injection']/1000), 
+                "consumption": str(v['consumption']/1000),
+                "i1": v["i1"], "i2": v["i2"], "i3": v["i3"],
+                "w1": last_w1,
+                "w2": last_w2,
+                "wtotal": last_wtotal,
+            }
         except:
             print(v)
         if debug:

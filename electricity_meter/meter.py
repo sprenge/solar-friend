@@ -73,7 +73,7 @@ def val_profile1(profile_data, serial_port):
 
     fields_expected = ['consume1', 'consume2', 'return1', 'return2']
     i_translate = {"31": "1", "51": "2", "71": "3"}
-    adict = {"i1": 128.0, "i2": 128.0, "i3": 128.0, "w1": 0, "w2": 0}
+    adict = {"i1": 0.0, "i2": 0.0, "i3": 0.0, "w1": 0, "w2": 0}
     ser.open()
     exception_fnd = False
     checksum_found = False
@@ -113,7 +113,10 @@ def val_profile1(profile_data, serial_port):
             match = re.match(regex, ser_data)
             if match:
                 phase = i_translate[match.group(1)]
-                adict[f'i{phase}'] = float(match.group(4))
+                if float(match.group(4)) < 33.0:
+                    adict[f'i{phase}'] = float(match.group(4))
+                else:
+                    adict[f'i{phase}'] = 0.0
         except Exception as e:
             print(e)
         try:

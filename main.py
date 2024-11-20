@@ -180,10 +180,10 @@ class GetMeterValues(Resource):
 
         adict = {}
         try:
-            if v['w1'] > 0:
+            if v['w1'] > 0 and v['w1'] < 22000:
                 last_w1 = v['w1']
                 last_wtotal = 0 - last_w1
-            if v['w2'] > 0:
+            if v['w2'] > 0 and v['w2'] < 22000:
                 last_w2 = v['w2'] 
                 last_total = last_w2   
             adict = {
